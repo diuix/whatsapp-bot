@@ -1,9 +1,9 @@
 // api/webhook.js
-import axios from "axios";
+const axios = require("axios"); // Usando require para evitar problemas de ESM
 
-const VERIFY_TOKEN = "teste123"; // Use o mesmo token no Meta Developers
+const VERIFY_TOKEN = "teste123"; // Token de verificação do Meta
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Verificação do webhook (GET)
   if (req.method === "GET") {
     const mode = req.query["hub.mode"];
@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   }
 
   // Recebendo mensagens do WhatsApp (POST)
-  else if (req.method === "POST") {
+  if (req.method === "POST") {
     try {
       const body = req.body;
 
@@ -29,10 +29,10 @@ export default async function handler(req, res) {
         return res.status(400).send("Bad Request");
       }
 
-      // Aqui você recebe eventos do WhatsApp
       console.log("Mensagem recebida:", JSON.stringify(body, null, 2));
 
-      // Exemplo: responder com axios para a Cloud API (opcional)
+      // Aqui você pode adicionar lógica para responder usando a Cloud API
+      // Exemplo:
       // await axios.post("https://graph.facebook.com/v17.0/YOUR_PHONE_NUMBER_ID/messages", {
       //   messaging_product: "whatsapp",
       //   to: body.entry[0].changes[0].value.messages[0].from,
@@ -52,7 +52,5 @@ export default async function handler(req, res) {
   }
 
   // Métodos não suportados
-  else {
-    return res.status(405).send("Método não permitido");
-  }
-}
+  return res.status(405).send("Método não permitido");
+};
