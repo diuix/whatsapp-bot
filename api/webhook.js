@@ -1,62 +1,58 @@
+// api/webhook.js
 import axios from "axios";
-import fs from "fs";
+
+const VERIFY_TOKEN = "teste123"; // Use o mesmo token no Meta Developers
 
 export default async function handler(req, res) {
+  // Verificação do webhook (GET)
   if (req.method === "GET") {
-    const VERIFY_TOKEN = "teste123";
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
 
-    if (mode && token && mode === "subscribe" && token === VERIFY_TOKEN) {
+    if (mode === "subscribe" && token === VERIFY_TOKEN) {
       console.log("Webhook verificado com sucesso!");
       return res.status(200).send(challenge);
+    } else {
+      console.log("Falha na verificação do webhook");
+      return res.status(403).send("Token inválido");
     }
-    return res.sendStatus(403);
   }
 
-  if (req.method === "POST") {
-    const body = req.body;
-    if (!body.object) return res.sendStatus(404);
+  // Recebendo mensagens do WhatsApp (POST)
+  else if (req.method === "POST") {
+    try {
+      const body = req.body;
 
-    const clientes = JSON.parse(fs.readFileSync("clientes.json"));
-
-    const entries = body.entry || [];
-    for (const entry of entries) {
-      const changes = entry.changes || [];
-      for (const change of changes) {
-        const messages = change.value.messages || [];
-        for (const message of messages) {
-          const from = message.from;
-          const text = message.text?.body || "";
-          const phone_id = change.value.metadata?.phone_number_id;
-
-          const cliente = clientes.find(c => c.phone_number_id === phone_id);
-          if (!cliente) continue;
-
-          console.log(`Mensagem recebida de ${from} para ${cliente.nome}: ${text}`);
-
-          for (const vendedor of cliente.vendedores) {
-            await axios.post(
-              `https://graph.facebook.com/v21.0/${cliente.phone_number_id}/messages`,
-              {
-                messaging_product: "whatsapp",
-                to: vendedor,
-                type: "text",
-                text: { body: `Mensagem de ${from}: ${text}` }
-              },
-              {
-                headers: { Authorization: `Bearer ${cliente.access_token}` }
-              }
-            );
-            console.log(`Mensagem enviada para ${vendedor}`);
-          }
-        }
+      if (!body) {
+        console.log("Corpo vazio recebido no webhook");
+        return res.status(400).send("Bad Request");
       }
-    }
 
-    return res.sendStatus(200);
+      // Aqui você recebe eventos do WhatsApp
+      console.log("Mensagem recebida:", JSON.stringify(body, null, 2));
+
+      // Exemplo: responder com axios para a Cloud API (opcional)
+      // await axios.post("https://graph.facebook.com/v17.0/YOUR_PHONE_NUMBER_ID/messages", {
+      //   messaging_product: "whatsapp",
+      //   to: body.entry[0].changes[0].value.messages[0].from,
+      //   text: { body: "Mensagem recebida!" }
+      // }, {
+      //   headers: {
+      //     "Authorization": `Bearer YOUR_ACCESS_TOKEN`,
+      //     "Content-Type": "application/json"
+      //   }
+      // });
+
+      return res.status(200).send("EVENT_RECEIVED");
+    } catch (err) {
+      console.error("Erro ao processar POST:", err);
+      return res.status(500).send("Erro interno");
+    }
   }
 
-  res.sendStatus(405);
+  // Métodos não suportados
+  else {
+    return res.status(405).send("Método não permitido");
+  }
 }
